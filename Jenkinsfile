@@ -1,19 +1,24 @@
 def rpmbuild = docker.image('jenkins-rpmbuild')
 
-rpmbuild.inside('-v /srv/pkgrepo:/pkgrepo:rw') {
-    stage("checkout") {
-        git '/srv/git/sistkovi.git'
-    }
-    stage("build") {
-        sh('HOME=/home/jenkins; rpm/buildrpm.sh')
-    }
-    stage("repo") {
-        sh('cp rpm/*.rpm /pkgrepo/; createrepo_c --update /pkgrepo')
-    }
-}
+pipeline {
+    agent none
 
-node('master') {
-    stage("deploy") {
-        sh('sudo /usr/bin/zypper update -y --repo vsistek')
+    stages {
+        stage('build') {
+            steps {
+                rpmbuild.inside('-v /srv/pkgrepo:/pkgrepo:rw') {
+                    checkout scm
+                    sh('HOME=/home/jenkins; rpm/buildrpm.sh')
+                    sh('cp rpm/*.rpm /pkgrepo/; createrepo_c --update /pkgrepo')
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                node('master') {
+                    sh('sudo /usr/bin/zypper update -y --repo vsistek')
+                }
+            }
+        }
     }
 }
